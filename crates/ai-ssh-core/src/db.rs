@@ -186,8 +186,8 @@ pub fn get_monitor_settings(conn: &Connection) -> Result<MonitorSettings> {
         |r| {
             Ok(MonitorSettings {
                 interval_sec: r.get(0)?,
-                cpu_alert: r.get(1)?,
-                mem_alert: r.get(2)?,
+                mem_alert: r.get(1)?,
+                cpu_alert: r.get(2)?,
                 swap_alert: r.get(3)?,
                 disk_alert: r.get(4)?,
                 notification_mode: r.get(5)?,
