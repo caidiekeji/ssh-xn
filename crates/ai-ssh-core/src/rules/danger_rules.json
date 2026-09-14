@@ -1,0 +1,175 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "rm-root",
+      "level": "high",
+      "command": "rm",
+      "short_flags": "rf",
+      "long_flags": [],
+      "args_any": [],
+      "pattern": "(^|\\s)(/|/\\*|/etc\\b|/boot\\b|/home\\b|/root\\b|/usr\\b|/var\\b|/bin\\b|/sbin\\b|/lib\\b)(\\s|$)",
+      "reason": "递归强制删除根目录或系统关键目录，可能毁掉整台机器"
+    },
+    {
+      "id": "rm-any-force",
+      "level": "medium",
+      "command": "rm",
+      "short_flags": "rf",
+      "long_flags": [],
+      "args_any": [],
+      "pattern": null,
+      "reason": "递归强制删除文件（非系统目录），请确认路径"
+    },
+    {
+      "id": "rm-recursive",
+      "level": "medium",
+      "command": "rm",
+      "short_flags": "r",
+      "long_flags": [],
+      "args_any": [],
+      "pattern": null,
+      "reason": "递归删除目录"
+    },
+    {
+      "id": "rm-force",
+      "level": "medium",
+      "command": "rm",
+      "short_flags": "f",
+      "long_flags": [],
+      "args_any": [],
+      "pattern": null,
+      "reason": "强制删除文件（不提示）"
+    },
+    {
+      "id": "mkfs",
+      "level": "high",
+      "command": "*",
+      "short_flags": "",
+      "long_flags": [],
+      "args_any": [],
+      "pattern": "\\bmkfs(\\.\\w+)?\\s+[^|;&]*/dev/",
+      "reason": "格式化磁盘设备，数据将不可恢复"
+    },
+    {
+      "id": "dd-raw-device",
+      "level": "high",
+      "command": "dd",
+      "short_flags": "",
+      "long_flags": [],
+      "args_any": [],
+      "pattern": "\\bof\\s*=\\s*/dev/",
+      "reason": "向原始设备直接写入，可覆盖整个磁盘"
+    },
+    {
+      "id": "power-control",
+      "level": "high",
+      "command": "*",
+      "short_flags": "",
+      "long_flags": [],
+      "args_any": [],
+      "pattern": "^(sudo\\s+)?(shutdown|reboot|halt|poweroff)(\\s|$)",
+      "reason": "关机/重启类操作会中断所有会话与服务"
+    },
+    {
+      "id": "drop-database",
+      "level": "high",
+      "command": "*",
+      "short_flags": "",
+      "long_flags": [],
+      "args_any": [],
+      "pattern": "(?i)\\b(drop\\s+database|drop\\s+schema)\\b",
+      "reason": "删除整个数据库/模式，数据不可恢复"
+    },
+    {
+      "id": "fork-bomb",
+      "level": "high",
+      "command": "*",
+      "short_flags": "",
+      "long_flags": [],
+      "args_any": [],
+      "pattern": ":?\\(\\s*\\)\\s*\\{|:\\|:|\\b(fork\\s*bomb|forkbomb)\\b",
+      "reason": "检测到 fork 炸弹类命令，会使系统资源耗尽"
+    },
+    {
+      "id": "chmod-world-writable",
+      "level": "medium",
+      "command": "chmod",
+      "short_flags": "",
+      "long_flags": [],
+      "args_any": [],
+      "pattern": "\\b777\\b|\\ba\\+rwx\\b",
+      "reason": "设置全局可读写可执行权限，存在安全风险"
+    },
+    {
+      "id": "chmod-any",
+      "level": "medium",
+      "command": "chmod",
+      "short_flags": "",
+      "long_flags": [],
+      "args_any": [],
+      "pattern": null,
+      "reason": "修改文件权限，请确认目标与权限位"
+    },
+    {
+      "id": "kill-9",
+      "level": "medium",
+      "command": "kill",
+      "short_flags": "",
+      "long_flags": [],
+      "args_any": ["-9"],
+      "pattern": "(^|\\s)-9(\\s|$)",
+      "reason": "强制杀死进程（SIGKILL），进程无法优雅退出"
+    },
+    {
+      "id": "systemctl-stop",
+      "level": "medium",
+      "command": "systemctl",
+      "short_flags": "",
+      "long_flags": [],
+      "args_any": ["stop"],
+      "pattern": null,
+      "reason": "停止系统服务，可能影响依赖该服务的应用"
+    },
+    {
+      "id": "overwrite-redirect",
+      "level": "medium",
+      "command": "*",
+      "short_flags": "",
+      "long_flags": [],
+      "args_any": [],
+      "pattern": "(^|[|;&]\\s*)(cat|echo|printf|tee)\\s+[^|;&]*\\s*>\\s*[^/][^|;&]*",
+      "reason": "用重定向覆盖文件内容，可能覆盖已有配置"
+    },
+    {
+      "id": "mv-to-dev",
+      "level": "medium",
+      "command": "mv",
+      "short_flags": "",
+      "long_flags": [],
+      "args_any": [],
+      "pattern": "\\s(/dev/|/proc/|/sys/)(\\s|$)",
+      "reason": "移动文件到设备/内核虚拟目录，可能导致设备文件损坏"
+    },
+    {
+      "id": "truncate-device",
+      "level": "high",
+      "command": "truncate",
+      "short_flags": "",
+      "long_flags": [],
+      "args_any": [],
+      "pattern": "/dev/",
+      "reason": "对设备文件执行截断操作"
+    },
+    {
+      "id": "chown-root-recursive",
+      "level": "medium",
+      "command": "chown",
+      "short_flags": "R",
+      "long_flags": [],
+      "args_any": [],
+      "pattern": null,
+      "reason": "递归修改文件属主，影响面较大"
+    }
+  ]
+}
