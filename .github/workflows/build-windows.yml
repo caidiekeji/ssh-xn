@@ -1,0 +1,62 @@
+# AI-SSH Windows 安装包自动构建
+# 两种触发方式：
+#   1) 手动：仓库 Actions 页 → 选择本工作流 → Run workflow
+#   2) 打 tag：git tag v1.2.0 && git push origin v1.2.0（同时生成 GitHub Release 草稿）
+# 产物：NSIS 安装包（*-setup.exe）与 MSI（*.msi），作为 artifact 上传，可直接下载安装。
+name: build-windows-exe
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: ./app
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ./app/package-lock.json
+
+      - name: Setup Rust (stable, msvc)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./app/src-tauri -> target"
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      # 图标源码不在仓库（纯文本仓库），由脚本生成 PNG + 1024 源图，再 tauri icon 出全套（含 icns/ico）
+      - name: Generate bundle icons
+        run: |
+          python ../scripts/gen_icons.py
+          npx tauri icon ./app-icon.png
+
+      - name: Build installer (NSIS exe + MSI)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: ./app
+          tagName: v__VERSION__
+          releaseName: "AI-SSH v__VERSION__"
+          releaseBody: "Windows 安装包（exe + msi），由 GitHub Actions 自动构建。"
+          releaseDraft: true
+          prerelease: false

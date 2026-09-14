@@ -1,0 +1,14 @@
+# 依赖与构建产物
+node_modules/
+dist/
+target/
+*.db
+
+# 图标由 scripts/gen_icons.py 在构建时生成
+app/src-tauri/icons/
+app/app-icon.png
+
+# 系统/编辑器
+.DS_Store
+.idea/
+.vscode/
