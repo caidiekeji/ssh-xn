@@ -315,7 +315,7 @@ fn monitor_update_settings(
 // ===== 安全 / 审计（F6） =====
 
 #[tauri::command]
-fn safety_check(command: String) -> ai_ssh_core::schema::SafetyVerdict {
+fn safety_check(command: String) -> ai_ssh_core::safety::SafetyVerdict {
     safety::safety_check(&command)
 }
 
