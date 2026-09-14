@@ -1,12 +1,12 @@
 # AI-SSH Windows 安装包自动构建
 # 触发方式：
-#   1) 推送 main 分支 → 自动构建（Release 草稿自动创建/更新）
+#   1) 推送 main 分支 → 自动构建（Release 自动创建/更新，正式发布）
 #   2) 手动：仓库 Actions 页 → 选择本工作流 → Run workflow
-#   3) 打 tag：git tag v1.2.0 && git push origin v1.2.0（同时生成 GitHub Release 草稿）
-# 产物：NSIS 安装包（*-setup.exe）与 MSI（*.msi），作为 artifact 上传，可直接下载安装。
+#   3) 打 tag：git tag v1.2.0 && git push origin v1.2.0（同时生成 GitHub Release）
+# 产物：NSIS 安装包（*-setup.exe）与 MSI（*.msi），正式 Release + Actions Artifact 双通道可下载。
 name: build-windows-exe
 
-# tauri-action 需创建/更新 Release 草稿，必须显式授予 contents: write
+# tauri-action 需创建/更新 Release，必须显式授予 contents: write
 # （否则报 "Resource not accessible by integration"）
 permissions:
   contents: write
@@ -64,6 +64,16 @@ jobs:
           projectPath: ./app
           tagName: v__VERSION__
           releaseName: "AI-SSH v__VERSION__"
-          releaseBody: "Windows 安装包（exe + msi），由 GitHub Actions 自动构建。"
-          releaseDraft: true
+          releaseBody: "AI-SSH 桌面终端（Tauri 2 + Rust + React）。Windows 安装包：exe（NSIS）+ msi。\n\nv1.2.0 修复：首次启动闪退（自动创建数据目录）、WebView2 内嵌安装引导。"
+          releaseDraft: false
           prerelease: false
+
+      # 双通道交付：即使 Release 上传异常，Actions Artifacts 也可直接下载（未登录可见）
+      - name: Upload bundle artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-ssh-windows-installer
+          path: |
+            app/src-tauri/target/release/bundle/nsis/*.exe
+            app/src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: warn
