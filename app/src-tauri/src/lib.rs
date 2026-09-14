@@ -395,8 +395,12 @@ pub fn run() {
 }
 
 /// 应用数据目录（跨平台）：<data_dir>/ai-ssh
+/// 必须先行创建目录：首次运行（尤其 Windows 首装）目录不存在，
+/// 否则 Connection::open 失败 panic 导致应用闪退无法打开。
 fn app_data_dir() -> std::path::PathBuf {
-    dirs::data_dir()
+    let dir = dirs::data_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("ai-ssh")
+        .join("ai-ssh");
+    std::fs::create_dir_all(&dir).expect("无法创建 AI-SSH 数据目录");
+    dir
 }
