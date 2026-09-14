@@ -1,0 +1,40 @@
+[package]
+name = "ai-ssh"
+version = "1.2.0"
+description = "AI-SSH — 桌面 SSH 客户端 + 可配置 LLM + 本地历史记忆 + 资源监控"
+edition = "2021"
+license = "MIT"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+futures-util = "0.3"
+rusqlite = { version = "0.32", features = ["bundled"] }
+reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls"], default-features = false }
+russh = { version = "0.45", features = ["tokio-runtime"] }
+russh-keys = "0.45"
+dirs = "5"
+chrono = { version = "0.4", features = ["serde"] }
+aes-gcm = "0.10"
+sha2 = "0.10"
+base64 = "0.22"
+rand = "0.8"
+thiserror = "2"
+
+# 本地 ai-ssh-core 逻辑库（脱敏/安全/记忆/监控解析/指标/审计/prompt/llm/加密）
+ai-ssh-core = { path = "../../crates/ai-ssh-core" }
+
+[lib]
+name = "ai_ssh_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[profile.release]
+lto = "thin"
+opt-level = 2
