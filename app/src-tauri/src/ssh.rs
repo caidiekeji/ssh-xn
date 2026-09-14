@@ -3,10 +3,11 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use async_trait::async_trait;
 use rand::Rng;
-use russh::client::{Config, Handle};
+use russh::client::{Config, DisconnectReason, Handle, Session as SshSession};
 use russh::keys::decode_secret_key;
-use russh::{ChannelId, Disconnect, Pty, Session as SshSession};
+use russh::{ChannelId, Disconnect};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
@@ -22,8 +23,8 @@ use crate::state::AppState;
 #[derive(Clone)]
 pub struct Session {
     pub host_id: i64,
-    pub handle: Handle<ClientHandler>,
-    pub channel: russh::client::Channel<russh::ChannelMsg>,
+    pub handle: Arc<Handle<ClientHandler>>,
+    pub channel: Arc<russh::Channel<russh::client::Msg>>,
     pub connected: bool,
 }
 
@@ -35,50 +36,65 @@ pub struct ClientHandler {
     pub state: Arc<AppState>,
 }
 
+#[async_trait]
 impl russh::client::Handler for ClientHandler {
     type Error = russh::Error;
 
     /// 演示环境信任所有主机密钥；生产环境应改为 known_hosts 校验（README 注明）。
-    async fn server_public_key(&mut self, _key: &russh::keys::ssh_key::PublicKey) -> Result<bool, Self::Error> {
+    async fn check_server_key(&mut self, _key: &russh::keys::key::PublicKey) -> Result<bool, Self::Error> {
         Ok(true)
     }
 
-    async fn channel_open_confirmation(&mut self, _c: ChannelId, _mps: u32, _ws: u32, _s: &mut SshSession) {}
+    async fn channel_open_confirmation(&mut self, _c: ChannelId, _mps: u32, _ws: u32, _s: &mut SshSession) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
-    async fn data(&mut self, _channel: ChannelId, data: &[u8], _session: &mut SshSession) {
+    async fn data(&mut self, _channel: ChannelId, data: &[u8], _session: &mut SshSession) -> Result<(), Self::Error> {
         let text = String::from_utf8_lossy(data).to_string();
         let _ = self
             .app
             .emit("terminal_output", serde_json::json!({ "session_id": self.session_id, "data": text }));
         // F4.1 上下文记录 + F4.2 规则层报错检测（防抖推送）
         context::on_terminal_output(&self.state, &self.app, &self.session_id, &text);
+        Ok(())
     }
 
-    async fn channel_eof(&mut self, _c: ChannelId, _s: &mut SshSession) {}
+    async fn channel_eof(&mut self, _c: ChannelId, _s: &mut SshSession) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
-    async fn channel_close(&mut self, _c: ChannelId, _s: &mut SshSession) {
+    async fn channel_close(&mut self, _c: ChannelId, _s: &mut SshSession) -> Result<(), Self::Error> {
         self.mark_disconnected(None);
+        Ok(())
     }
 
-    async fn channel_failure(&mut self, _c: ChannelId, _s: &mut SshSession) {}
+    async fn channel_failure(&mut self, _c: ChannelId, _s: &mut SshSession) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
-    async fn channel_request_success(&mut self, _c: ChannelId, _s: &mut SshSession) {}
+    async fn channel_success(&mut self, _c: ChannelId, _s: &mut SshSession) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
-    async fn channel_request_failure(&mut self, _c: ChannelId, _s: &mut SshSession) {}
-
-    async fn auth_banner(&mut self, banner: &str, _s: &mut SshSession) {
+    async fn auth_banner(&mut self, banner: &str, _s: &mut SshSession) -> Result<(), Self::Error> {
         let _ = self.app.emit(
             "terminal_output",
             serde_json::json!({ "session_id": self.session_id, "data": format!("\r\n\x1b[90m{banner}\x1b[0m") }),
         );
+        Ok(())
     }
 
-    async fn disconnected(&mut self, _reason: Disconnect, _s: &mut SshSession) {
-        self.mark_disconnected(None);
-    }
-
-    async fn error(&mut self, error: &Self::Error, _s: &mut SshSession) {
-        self.mark_disconnected(Some(&error.to_string()));
+    async fn disconnected(&mut self, reason: DisconnectReason<Self::Error>) -> Result<(), Self::Error> {
+        match reason {
+            DisconnectReason::Error(e) => {
+                self.mark_disconnected(Some(&e.to_string()));
+                Err(e)
+            }
+            _ => {
+                self.mark_disconnected(None);
+                Ok(())
+            }
+        }
     }
 }
 
@@ -106,8 +122,8 @@ pub struct HostConnected {
 fn build_config() -> Config {
     let mut config = Config::default();
     config.keepalive_interval = Some(Duration::from_secs(15));
-    config.keepalive_count = 3;
-    config.connection_timeout = Some(Duration::from_secs(20));
+    config.keepalive_max = 3;
+    config.inactivity_timeout = Some(Duration::from_secs(30));
     config
 }
 
@@ -121,23 +137,13 @@ fn handler_for(state: &Arc<AppState>, app: &AppHandle, session_id: String) -> Cl
 
 async fn open_shell(
     handle: &mut Handle<ClientHandler>,
-) -> Result<russh::client::Channel<russh::ChannelMsg>> {
-    let (_, channel) = handle
+) -> Result<russh::Channel<russh::client::Msg>> {
+    let channel = handle
         .channel_open_session()
         .await
         .map_err(|e| Error::Ssh(format!("打开会话失败: {e}")))?;
     channel
-        .request_pty(
-            true,
-            &Pty {
-                term: "xterm-256color",
-                char_width: 80,
-                char_height: 24,
-                pixel_width: 0,
-                pixel_height: 0,
-                modes: vec![],
-            },
-        )
+        .request_pty(true, "xterm-256color", 80, 24, 0, 0, &[])
         .await
         .map_err(|e| Error::Ssh(format!("申请 PTY 失败: {e}")))?;
     channel
@@ -160,7 +166,7 @@ pub async fn connect(state: &Arc<AppState>, app: &AppHandle, host_id: i64) -> Re
         .ok_or_else(|| Error::Ssh("无法解析主机地址".into()))?;
 
     let handler = handler_for(state, app, session_id.clone());
-    let mut handle = russh::client::connect(build_config(), addr, handler)
+    let mut handle = russh::client::connect(Arc::new(build_config()), addr, handler)
         .await
         .map_err(|e| Error::Ssh(format!("连接失败: {e}")))?;
 
@@ -172,8 +178,8 @@ pub async fn connect(state: &Arc<AppState>, app: &AppHandle, host_id: i64) -> Re
         session_id.clone(),
         Session {
             host_id,
-            handle: handle.clone(),
-            channel: channel.clone(),
+            handle: Arc::new(handle),
+            channel: Arc::new(channel),
             connected: true,
         },
     );
@@ -199,7 +205,7 @@ async fn authenticate(
             let key = decode_secret_key(&key_text, pass.as_deref())
                 .map_err(|e| Error::Ssh(format!("解析私钥失败: {e}")))?;
             handle
-                .authenticate_publickey(&host.username, key)
+                .authenticate_publickey(&host.username, Arc::new(key))
                 .await
                 .map_err(|e| Error::Ssh(format!("私钥认证失败: {e}")))?
         }
@@ -258,15 +264,15 @@ async fn reconnect_attempt(state: &Arc<AppState>, app: &AppHandle, session_id: &
         .ok_or_else(|| Error::Ssh("无法解析主机地址".into()))?;
 
     let handler = handler_for(state, app, session_id.to_string());
-    let mut handle = russh::client::connect(build_config(), addr, handler)
+    let mut handle = russh::client::connect(Arc::new(build_config()), addr, handler)
         .await
         .map_err(|e| Error::Ssh(format!("重连失败: {e}")))?;
     authenticate(&mut handle, &conn, host, host.id).await?;
     let channel = open_shell(&mut handle).await?;
 
     if let Some(s) = state.sessions.lock().unwrap().get_mut(session_id) {
-        s.handle = handle;
-        s.channel = channel;
+        s.handle = Arc::new(handle);
+        s.channel = Arc::new(channel);
         s.connected = true;
     }
     let _ = app.emit(
@@ -307,7 +313,7 @@ pub async fn resize(state: &Arc<AppState>, session_id: &str, cols: u32, rows: u3
         .cloned()
         .ok_or_else(|| Error::NotFound(format!("会话 {session_id}")))?;
     s.channel
-        .resize(cols, rows, cols * 8, rows * 16)
+        .window_change(cols, rows, cols * 8, rows * 16)
         .await
         .map_err(|e| Error::Ssh(format!("调整窗口失败: {e}")))?;
     Ok(())
@@ -338,7 +344,7 @@ pub async fn exec(state: &Arc<AppState>, session_id: &str, command: &str) -> Res
         .get(session_id)
         .cloned()
         .ok_or_else(|| Error::NotFound(format!("会话 {session_id}")))?;
-    let (_, mut channel) = s
+    let mut channel = s
         .handle
         .channel_open_session()
         .await
@@ -352,8 +358,8 @@ pub async fn exec(state: &Arc<AppState>, session_id: &str, command: &str) -> Res
     let mut exit: Option<u32> = None;
     while let Some(msg) = channel.wait().await {
         match msg {
-            russh::ChannelMsg::Data(_, bytes) => output.push_str(&String::from_utf8_lossy(&bytes)),
-            russh::ChannelMsg::ExitStatus(code) => exit = Some(code),
+            russh::ChannelMsg::Data { data } => output.push_str(&String::from_utf8_lossy(&data)),
+            russh::ChannelMsg::ExitStatus { exit_status } => exit = Some(exit_status),
             russh::ChannelMsg::Close => break,
             _ => {}
         }
@@ -487,10 +493,10 @@ pub async fn test_connection(state: &Arc<AppState>, app: &AppHandle, host_id: i6
         .ok_or_else(|| Error::Ssh("无法解析主机地址".into()))?;
 
     let mut config = Config::default();
-    config.connection_timeout = Some(Duration::from_secs(10));
+    config.inactivity_timeout = Some(Duration::from_secs(10));
 
     let handler = handler_for(state, app, format!("test{}", host_id));
-    let mut handle = russh::client::connect(config, addr, handler)
+    let mut handle = russh::client::connect(Arc::new(config), addr, handler)
         .await
         .map_err(|e| Error::Ssh(format!("连接失败: {e}")))?;
     authenticate(&mut handle, &conn, &host, host_id).await?;
