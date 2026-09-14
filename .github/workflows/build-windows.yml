@@ -24,8 +24,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: ./app/package-lock.json
+          # 仓库不含 package-lock.json（体积超上传通道限制），由 npm install 生成，故不启用 npm 缓存
 
       - name: Setup Rust (stable, msvc)
         uses: dtolnay/rust-toolchain@stable
