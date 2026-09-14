@@ -1,3 +1,6 @@
+# 独立 workspace：不并入根 workspace（ai-ssh-core），避免 cargo 向上查找到根 Cargo.toml 时报“当前包不属于任何 workspace”
+[workspace]
+
 [package]
 name = "ai-ssh"
 version = "1.2.0"
