@@ -198,7 +198,7 @@ pub async fn generate_command(state: &Arc<AppState>, app: &AppHandle, session_id
                         let verdict = ai_ssh_core::safety::safety_check(&cmd_result.commands.join("\n"), Some(cmd_result.risk));
                         let final_result = CommandResult {
                             risk: verdict.level,
-                            risk_reason: if verdict.reasons.is_empty() { cmd_result.risk_reason.clone() } else { format!("{}（规则: {}", cmd_result.risk_reason, verdict.reasons.join("; ")) },
+                            risk_reason: if verdict.reasons.is_empty() { cmd_result.risk_reason.clone() } else { format!("{}（规则: {}）", cmd_result.risk_reason, verdict.reasons.join("; ")) },
                             ..cmd_result
                         };
                         let _ = app2.emit(
@@ -274,7 +274,7 @@ pub async fn analyze_alert(state: &Arc<AppState>, app: &AppHandle, host_id: i64,
         )
         .map_err(|_| Error::NotFound(format!("告警 {alert_id}")))?;
 
-    let snap = met::get_snapshot(state, host_id).await.unwrap_or_default();
+    let snap = met::get_snapshot(state, host_id).unwrap_or_default();
     let overview = format!(
         "CPU {:.1}% | 内存 {:.1}% ({}MB/{}MB) | Swap {:.1}% | 负载 {:.2}",
         snap.cpu.total_pct,
