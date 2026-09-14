@@ -172,7 +172,7 @@ pub async fn generate_command(state: &Arc<AppState>, app: &AppHandle, session_id
     tokio::spawn(async move {
         let result = stream_scene(&state2, "command_gen", messages, |delta| {
             let _ = app2.emit(
-                format!("{event}_chunk"),
+                &format!("{event}_chunk"),
                 serde_json::json!({ "chunk": delta }),
             );
         })
@@ -202,7 +202,7 @@ pub async fn generate_command(state: &Arc<AppState>, app: &AppHandle, session_id
                             ..cmd_result
                         };
                         let _ = app2.emit(
-                            format!("{event}_done"),
+                            &format!("{event}_done"),
                             serde_json::json!({ "result": serde_json::to_string(&final_result).unwrap_or_default() }),
                         );
                         // 审计：记录生成（未执行前）
@@ -215,12 +215,12 @@ pub async fn generate_command(state: &Arc<AppState>, app: &AppHandle, session_id
                         }
                     }
                     Err(e) => {
-                        let _ = app2.emit(format!("{event}_error"), serde_json::json!({ "message": e.to_string() }));
+                        let _ = app2.emit(&format!("{event}_error"), serde_json::json!({ "message": e.to_string() }));
                     }
                 }
             }
             Err(e) => {
-                let _ = app2.emit(format!("{event}_error"), serde_json::json!({ "message": e.to_string() }));
+                let _ = app2.emit(&format!("{event}_error"), serde_json::json!({ "message": e.to_string() }));
             }
         }
     });
@@ -331,7 +331,7 @@ fn spawn_diagnosis_stream(
 ) {
     tokio::spawn(async move {
         let result = stream_scene(&state, "error_analysis", messages, |delta| {
-            let _ = app.emit(format!("{event}_chunk"), serde_json::json!({ "chunk": delta }));
+            let _ = app.emit(&format!("{event}_chunk"), serde_json::json!({ "chunk": delta }));
         })
         .await;
         match result {
@@ -353,15 +353,15 @@ fn spawn_diagnosis_stream(
                 }
                 match parsed {
                     Ok(d) => {
-                        let _ = app.emit(format!("{event}_done"), serde_json::json!({ "result": serde_json::to_string(&d).unwrap_or_default() }));
+                        let _ = app.emit(&format!("{event}_done"), serde_json::json!({ "result": serde_json::to_string(&d).unwrap_or_default() }));
                     }
                     Err(e) => {
-                        let _ = app.emit(format!("{event}_error"), serde_json::json!({ "message": e.to_string() }));
+                        let _ = app.emit(&format!("{event}_error"), serde_json::json!({ "message": e.to_string() }));
                     }
                 }
             }
             Err(e) => {
-                let _ = app.emit(format!("{event}_error"), serde_json::json!({ "message": e.to_string() }));
+                let _ = app.emit(&format!("{event}_error"), serde_json::json!({ "message": e.to_string() }));
             }
         }
     });
