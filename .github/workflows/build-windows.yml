@@ -1,13 +1,16 @@
 # AI-SSH Windows 安装包自动构建
-# 两种触发方式：
-#   1) 手动：仓库 Actions 页 → 选择本工作流 → Run workflow
-#   2) 打 tag：git tag v1.2.0 && git push origin v1.2.0（同时生成 GitHub Release 草稿）
+# 触发方式：
+#   1) 推送 main 分支 → 自动构建（Release 草稿自动创建/更新）
+#   2) 手动：仓库 Actions 页 → 选择本工作流 → Run workflow
+#   3) 打 tag：git tag v1.2.0 && git push origin v1.2.0（同时生成 GitHub Release 草稿）
 # 产物：NSIS 安装包（*-setup.exe）与 MSI（*.msi），作为 artifact 上传，可直接下载安装。
 name: build-windows-exe
 
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
     tags:
       - "v*"
 
