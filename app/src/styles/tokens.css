@@ -1,0 +1,63 @@
+/** CLASH 撞色主题（主色 示波器琥珀 #F0A64A，互补撞色 电光蓝）—— AI-SSH 项目主题 60-30-10 撞色 token
+ *  原创画面句：深夜机房示波器台架——琥珀示波线在深炭屏上扫描，SSH 通道以等宽行流输送命令，
+ *  AI 以逐行打印回应，危险操作打出琥珀硬警告。
+ *  骨架由 generate_tokens.py --clash 生成，色值/字号/动效按画面概念覆盖（终端像素感：小圆角、等宽、发丝线）。
+ */
+:root {
+  /* ===== 色彩 60-30-10 撞色 =====
+     60% 基底：深炭暖墨（带琥珀色相，非纯黑）
+     30% 次要：同色相分层（终端面板/卡片）
+     10% 强调：电光蓝（撞色焦点：执行/连接/主 CTA）+ 青绿（AI 签名/流式输出）+ 紫（hover 微点缀） */
+  --bg: #141210;      /* 页面主底：深夜机房炭墨 */
+  --bg2: #1A1714;     /* 次级底（侧栏/页脚区） */
+  --paper: #201C17;   /* 浮层/弹窗底 */
+  --surface: #26211B; /* 卡片/面板底 */
+  --surface2: #1F1B16;/* 次级卡片/表格行底 */
+  --line: #3B332A;    /* 发丝分隔线 */
+  --acc: #4D8DFF;     /* 主强调：电光蓝（与琥珀主色互补，唯一大面积撞色焦点） */
+  --acc2: #22D48C;    /* 辅强调：青绿——AI 签名色（流式光标/连接就绪） */
+  --acc3: #A855F7;    /* 第三强调：hover 微点缀 */
+  --ink: #F2F5FA;     /* 主文字 */
+  --sub: #B3A898;     /* 次级文字 */
+  --faint: #7D7262;   /* 弱化/占位 */
+  --deep: #0D0B09;    /* 最深面（终端底） */
+  --light: #F2F5FA;
+  /* 语义色：绿=ok / 琥珀=warn（即示波线主色） / 红=err */
+  --ok: #2FC66E; --warn: #F0A64A; --err: #E5484D;
+  /* ===== 字体：终端工具以等宽为骨架，中文回退系统黑体 ===== */
+  --font-display: 'JetBrains Mono','Cascadia Code','SF Mono',ui-monospace,'Noto Sans SC','PingFang SC',monospace;
+  --font-body: 'JetBrains Mono','Cascadia Code','SF Mono',ui-monospace,'Noto Sans SC','PingFang SC',monospace;
+  /* ===== 排版 Type Scale（应用型密度：display 用于监控巨幅数字） ===== */
+  --fs-display: 2.25rem; --lh-display: 1.1; --fw-display: 600; --ls-display: -0.01em;
+  --fs-headline: 1.375rem; --lh-headline: 1.3; --fw-headline: 600; --ls-headline: 0;
+  --fs-title: 1.0625rem; --lh-title: 1.4; --fw-title: 600; --ls-title: 0;
+  --fs-body: 0.9375rem; --lh-body: 1.7; --fw-body: 400; --ls-body: 0;
+  --fs-caption: 0.75rem; --lh-caption: 1.5; --fw-caption: 500; --ls-caption: 0.02em;
+  /* ===== 间距（4px 基准） ===== */
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 64px;
+  /* ===== 圆角 / 阴影（终端像素感：小圆角 + 发丝线为主，阴影只做浮层） ===== */
+  --radius-sm: 2px; --radius-md: 4px; --radius-lg: 8px;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+  --shadow-md: 0 6px 24px rgba(0,0,0,.5);
+  --shadow-lg: 0 16px 48px rgba(0,0,0,.6);
+  /* ===== 动效（机械终端节奏：快而干脆） ===== */
+  --t-fast: 0.15s; --t-normal: 0.3s; --t-slow: 0.5s;
+  --ease: cubic-bezier(.25,.6,.25,1); --motion: 0.3s cubic-bezier(.25,.6,.25,1);
+  /* ===== 断点 / 层级 ===== */
+  --bp-sm: 640px; --bp-md: 1024px; --bp-lg: 1440px;
+  --z-base: 0; --z-sticky: 100; --z-modal: 1000;
+  /* ===== 组件 token（引用语义层，换主题零改动） ===== */
+  --btn-bg: var(--acc); --btn-fg: #0A1420; --btn-bg-hover: #6BA1FF;
+  --btn-ghost-bg: transparent; --btn-ghost-border: var(--line); --btn-ghost-fg: var(--ink);
+  --btn-danger-bg: var(--err); --btn-danger-fg: #FFF;
+  --input-bg: var(--deep); --input-border: var(--line); --input-fg: var(--ink);
+  --input-focus-border: var(--acc);
+  --card-bg: var(--surface); --card-border: var(--line); --card-shadow: var(--shadow-sm);
+  --terminal-bg: var(--deep);
+  --tag-ok: rgba(47,198,110,.14); --tag-ok-fg: #5FD98F;
+  --tag-warn: rgba(240,166,74,.14); --tag-warn-fg: #F5B83D;
+  --tag-err: rgba(229,72,77,.14); --tag-err-fg: #F0716F;
+  --tag-info: rgba(77,141,255,.14); --tag-info-fg: #7FACFF;
+  --tag-neutral: rgba(255,255,255,.06); --tag-neutral-fg: var(--sub);
+}
