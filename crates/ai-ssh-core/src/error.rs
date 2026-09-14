@@ -15,6 +15,12 @@ pub enum Error {
     #[error("网络请求错误: {0}")]
     Http(String),
 
+    #[error("SSH 错误: {0}")]
+    Ssh(String),
+
+    #[error("操作被拒绝: {0}")]
+    Forbidden(String),
+
     #[error("LLM 错误: {0}")]
     Llm(String),
 
@@ -45,6 +51,8 @@ impl Error {
             Error::Io(_) => "IO_ERROR",
             Error::Json(_) => "JSON_ERROR",
             Error::Http(_) => "HTTP_ERROR",
+            Error::Ssh(_) => "SSH_ERROR",
+            Error::Forbidden(_) => "FORBIDDEN",
             Error::Llm(_) => "LLM_ERROR",
             Error::Crypto(_) => "CRYPTO_ERROR",
             Error::Parse(_) => "PARSE_ERROR",

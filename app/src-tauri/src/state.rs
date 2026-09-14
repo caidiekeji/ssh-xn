@@ -12,6 +12,7 @@ use ai_ssh_core::schema::MetricsSnapshot;
 // 会话定义统一在 ssh.rs（含 SSH handle/channel），此处直接复用
 pub use crate::ssh::Session;
 
+#[derive(Default)]
 pub struct MonitorState {
     /// 上一次采样原始值（CPU / 网络），用于速率差值计算（F8.1）
     pub prev_cpu: Option<CpuRaw>,

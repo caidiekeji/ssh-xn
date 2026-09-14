@@ -7,7 +7,7 @@ use tauri::{AppHandle, Emitter};
 use ai_ssh_core::metrics::{self, AlertFilter, MinuteAccumulator};
 use ai_ssh_core::monitor;
 use ai_ssh_core::schema::MetricsSnapshot;
-use ai_ssh_core::Result;
+use ai_ssh_core::{Error, Result};
 
 use crate::state::{AppState, MonitorState};
 use crate::ssh;
@@ -27,7 +27,7 @@ pub fn get_snapshot(state: &Arc<AppState>, host_id: i64) -> Result<MetricsSnapsh
 pub async fn resource_summary(state: &Arc<AppState>, host_id: i64) -> String {
     match get_snapshot(state, host_id) {
         Ok(s) => format!(
-            "CPU {:.1}% | 内存 {:.1}% ({}/{})MB | Swap {:.1}% | 负载 {:.2}/{:.2}/{:.2} | 磁盘最高 {:.1}%",
+            "CPU {:.1}% | 内存 {:.1}% ({}/{}MB) | Swap {:.1}% | 负载 {:.2}/{:.2}/{:.2} | 磁盘最高 {:.1}%",
             s.cpu.total_pct,
             s.memory.pct,
             s.memory.used_mb,
