@@ -75,8 +75,9 @@ pub async fn start(state: &Arc<AppState>, app: AppHandle, host_id: i64) -> Resul
         state.monitor.lock().unwrap().entry(host_id).or_insert_with(MonitorState::default);
     }
 
-    let state = state.clone();
+    let task_state = state.clone();
     let task = tokio::spawn(async move {
+        let state = task_state;
         let mut fail_count = 0u32;
         loop {
             let interval = state

@@ -41,15 +41,15 @@ impl russh::client::Handler for ClientHandler {
     type Error = russh::Error;
 
     /// 演示环境信任所有主机密钥；生产环境应改为 known_hosts 校验（README 注明）。
-    async fn check_server_key(&mut self, _key: &russh::keys::key::PublicKey) -> Result<bool, Self::Error> {
+    async fn check_server_key(&mut self, _key: &russh::keys::key::PublicKey) -> std::result::Result<bool, Self::Error> {
         Ok(true)
     }
 
-    async fn channel_open_confirmation(&mut self, _c: ChannelId, _mps: u32, _ws: u32, _s: &mut SshSession) -> Result<(), Self::Error> {
+    async fn channel_open_confirmation(&mut self, _c: ChannelId, _mps: u32, _ws: u32, _s: &mut SshSession) -> std::result::Result<(), Self::Error> {
         Ok(())
     }
 
-    async fn data(&mut self, _channel: ChannelId, data: &[u8], _session: &mut SshSession) -> Result<(), Self::Error> {
+    async fn data(&mut self, _channel: ChannelId, data: &[u8], _session: &mut SshSession) -> std::result::Result<(), Self::Error> {
         let text = String::from_utf8_lossy(data).to_string();
         let _ = self
             .app
@@ -59,24 +59,24 @@ impl russh::client::Handler for ClientHandler {
         Ok(())
     }
 
-    async fn channel_eof(&mut self, _c: ChannelId, _s: &mut SshSession) -> Result<(), Self::Error> {
+    async fn channel_eof(&mut self, _c: ChannelId, _s: &mut SshSession) -> std::result::Result<(), Self::Error> {
         Ok(())
     }
 
-    async fn channel_close(&mut self, _c: ChannelId, _s: &mut SshSession) -> Result<(), Self::Error> {
+    async fn channel_close(&mut self, _c: ChannelId, _s: &mut SshSession) -> std::result::Result<(), Self::Error> {
         self.mark_disconnected(None);
         Ok(())
     }
 
-    async fn channel_failure(&mut self, _c: ChannelId, _s: &mut SshSession) -> Result<(), Self::Error> {
+    async fn channel_failure(&mut self, _c: ChannelId, _s: &mut SshSession) -> std::result::Result<(), Self::Error> {
         Ok(())
     }
 
-    async fn channel_success(&mut self, _c: ChannelId, _s: &mut SshSession) -> Result<(), Self::Error> {
+    async fn channel_success(&mut self, _c: ChannelId, _s: &mut SshSession) -> std::result::Result<(), Self::Error> {
         Ok(())
     }
 
-    async fn auth_banner(&mut self, banner: &str, _s: &mut SshSession) -> Result<(), Self::Error> {
+    async fn auth_banner(&mut self, banner: &str, _s: &mut SshSession) -> std::result::Result<(), Self::Error> {
         let _ = self.app.emit(
             "terminal_output",
             serde_json::json!({ "session_id": self.session_id, "data": format!("\r\n\x1b[90m{banner}\x1b[0m") }),
@@ -84,7 +84,7 @@ impl russh::client::Handler for ClientHandler {
         Ok(())
     }
 
-    async fn disconnected(&mut self, reason: DisconnectReason<Self::Error>) -> Result<(), Self::Error> {
+    async fn disconnected(&mut self, reason: DisconnectReason<Self::Error>) -> std::result::Result<(), Self::Error> {
         match reason {
             DisconnectReason::Error(e) => {
                 self.mark_disconnected(Some(&e.to_string()));
@@ -157,6 +157,10 @@ async fn open_shell(
 pub async fn connect(state: &Arc<AppState>, app: &AppHandle, host_id: i64) -> Result<String> {
     let conn = state.conn()?;
     let host = hosts::get_host(&conn, host_id)?;
+    // 凭据先取出再建连（避免 async future 持有 &Connection，导致 tokio::spawn 不 Send）
+    let secret = hosts::get_secret(&conn, host_id)?;
+    let passphrase = hosts::get_passphrase(&conn, host_id)?;
+    drop(conn);
 
     let session_id = format!("s{}", rand::thread_rng().gen::<u32>());
     let addr = tokio::net::lookup_host((host.host.as_str(), host.port as u16))
@@ -170,7 +174,7 @@ pub async fn connect(state: &Arc<AppState>, app: &AppHandle, host_id: i64) -> Re
         .await
         .map_err(|e| Error::Ssh(format!("连接失败: {e}")))?;
 
-    authenticate(&mut handle, &conn, &host, host_id).await?;
+    authenticate(&mut handle, &host, secret, passphrase).await?;
     let channel = open_shell(&mut handle).await?;
 
     // 多会话：每个标签页独立 SSH channel + PTY（F1.2）
@@ -192,17 +196,16 @@ pub async fn connect(state: &Arc<AppState>, app: &AppHandle, host_id: i64) -> Re
 
 async fn authenticate(
     handle: &mut Handle<ClientHandler>,
-    conn: &rusqlite::Connection,
     host: &HostRow,
-    host_id: i64,
+    secret: Option<String>,
+    passphrase: Option<String>,
 ) -> Result<()> {
     let authed = match host.auth_type.as_str() {
         "private_key" => {
-            let pass = hosts::get_passphrase(conn, host_id)?;
             let key_path = host.key_path.as_deref().ok_or_else(|| Error::Ssh("未配置私钥路径".into()))?;
             let key_text = std::fs::read_to_string(key_path)
                 .map_err(|e| Error::Ssh(format!("读取私钥失败: {e}")))?;
-            let key = decode_secret_key(&key_text, pass.as_deref())
+            let key = decode_secret_key(&key_text, passphrase.as_deref())
                 .map_err(|e| Error::Ssh(format!("解析私钥失败: {e}")))?;
             handle
                 .authenticate_publickey(&host.username, Arc::new(key))
@@ -210,8 +213,7 @@ async fn authenticate(
                 .map_err(|e| Error::Ssh(format!("私钥认证失败: {e}")))?
         }
         _ => {
-            let password = hosts::get_secret(conn, host_id)?
-                .ok_or_else(|| Error::Ssh("主机未保存密码".into()))?;
+            let password = secret.ok_or_else(|| Error::Ssh("主机未保存密码".into()))?;
             handle
                 .authenticate_password(&host.username, &password)
                 .await
@@ -257,6 +259,10 @@ fn spawn_reconnect_guard(state: Arc<AppState>, app: AppHandle, session_id: Strin
 
 async fn reconnect_attempt(state: &Arc<AppState>, app: &AppHandle, session_id: &str, host: &HostRow) -> Result<()> {
     let conn = state.conn()?;
+    // 凭据先取出，future 不持有 &Connection（tokio::spawn 需要 Send）
+    let secret = hosts::get_secret(&conn, host.id)?;
+    let passphrase = hosts::get_passphrase(&conn, host.id)?;
+    drop(conn);
     let addr = tokio::net::lookup_host((host.host.as_str(), host.port as u16))
         .await
         .map_err(|e| Error::Ssh(format!("解析主机地址失败: {e}")))?
@@ -267,7 +273,7 @@ async fn reconnect_attempt(state: &Arc<AppState>, app: &AppHandle, session_id: &
     let mut handle = russh::client::connect(Arc::new(build_config()), addr, handler)
         .await
         .map_err(|e| Error::Ssh(format!("重连失败: {e}")))?;
-    authenticate(&mut handle, &conn, host, host.id).await?;
+    authenticate(&mut handle, host, secret, passphrase).await?;
     let channel = open_shell(&mut handle).await?;
 
     if let Some(s) = state.sessions.lock().unwrap().get_mut(session_id) {
@@ -486,6 +492,9 @@ pub struct SftpEntry {
 pub async fn test_connection(state: &Arc<AppState>, app: &AppHandle, host_id: i64) -> Result<HostConnected> {
     let conn = state.conn()?;
     let host = hosts::get_host(&conn, host_id)?;
+    let secret = hosts::get_secret(&conn, host_id)?;
+    let passphrase = hosts::get_passphrase(&conn, host_id)?;
+    drop(conn);
     let addr = tokio::net::lookup_host((host.host.as_str(), host.port as u16))
         .await
         .map_err(|e| Error::Ssh(format!("解析主机地址失败: {e}")))?
@@ -499,7 +508,7 @@ pub async fn test_connection(state: &Arc<AppState>, app: &AppHandle, host_id: i6
     let mut handle = russh::client::connect(Arc::new(config), addr, handler)
         .await
         .map_err(|e| Error::Ssh(format!("连接失败: {e}")))?;
-    authenticate(&mut handle, &conn, &host, host_id).await?;
+    authenticate(&mut handle, &host, secret, passphrase).await?;
     let _ = handle.disconnect(Disconnect::ByApplication, "test done", "en").await;
     Ok(HostConnected { ok: true, message: "连接成功，认证通过".into() })
 }
