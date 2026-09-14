@@ -375,7 +375,7 @@ pub fn run() {
             safety_check,
             audit_export_csv,
         ])
-        .setup(|app| {
+        .setup(move |app| {
             // 启动时清理过期数据（PRD 第 7 节末尾）
             monitor::cleanup(&state);
             // 每小时清理

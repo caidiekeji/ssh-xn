@@ -35,9 +35,10 @@ pub fn recent_context(conn: &rusqlite::Connection, session_id: &str, limit: usiz
         Ok(s) => s,
         Err(_) => return Vec::new(),
     };
-    let rows = stmt
-        .query_map(params![session_id, limit as i64], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
-        .unwrap_or_default();
+    let rows = match stmt.query_map(params![session_id, limit as i64], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))) {
+        Ok(r) => r,
+        Err(_) => return Vec::new(),
+    };
     let mut out: Vec<String> = Vec::new();
     for r in rows {
         if let Ok((role, content)) = r {

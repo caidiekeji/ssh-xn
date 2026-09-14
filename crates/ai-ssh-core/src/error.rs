@@ -65,3 +65,11 @@ impl Error {
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
+
+/// 手动序列化为 {code, message}，使 `Error: Into<tauri::ipc::InvokeError>`（tauri 的 blanket impl 要求 Serialize）。
+impl serde::Serialize for Error {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+        serde_json::json!({ "code": self.code(), "message": self.to_string() })
+            .serialize(serializer)
+    }
+}
