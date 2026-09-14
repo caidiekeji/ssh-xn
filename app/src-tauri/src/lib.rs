@@ -136,9 +136,12 @@ fn webview2_installed() -> bool {
         r"HKLM\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
         r"HKCU\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
     ];
-    keys.iter().any(|k| {
+    keys.iter().copied().any(|k| {
         std::process::Command::new("reg")
-            .args(["query", k, "/v", "pv"])
+            .arg("query")
+            .arg(k)
+            .arg("/v")
+            .arg("pv")
             .output()
             .map(|o| o.status.success())
             .unwrap_or(false)
