@@ -108,7 +108,7 @@ pub async fn start(state: &Arc<AppState>, app: AppHandle, host_id: i64) -> Resul
                                 (ms.and_then(|x| x.prev_cpu.clone()), ms.map(|x| x.prev_net.clone()).unwrap_or_default())
                             };
                             let cores = count_cores(&raw).max(1);
-                            match monitor::assemble_linux_snapshot(host_id, now, &raw, prev_cpu.as_ref(), if prev_net.is_empty() { None } else { Some(&prev_net) }, interval as f64, cores) {
+                            match monitor::assemble_linux_snapshot(host_id, now, &raw, prev_cpu.as_ref(), if prev_net.is_empty() { None } else { Some(prev_net.as_slice()) }, interval as f64, cores) {
                                 Ok(snap) => {
                                     // 更新基线 + 快照缓存
                                     {
