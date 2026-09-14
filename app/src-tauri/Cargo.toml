@@ -21,7 +21,10 @@ tokio = { version = "1", features = ["full"] }
 futures-util = "0.3"
 rusqlite = { version = "0.32", features = ["bundled"] }
 reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls"], default-features = false }
-russh = { version = "0.45", features = ["tokio-runtime"] }
+# russh 0.45 默认即内置 tokio 运行时，不再有 tokio-runtime feature；显式声明会编译失败
+russh = { version = "0.45" }
+# russh 0.45 的 Handler trait 使用 async_trait，impl 端必须标注
+async-trait = "0.1"
 russh-keys = "0.45"
 dirs = "5"
 chrono = { version = "0.4", features = ["serde"] }
